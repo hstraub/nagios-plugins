@@ -1,0 +1,152 @@
+#!/usr/bin/python
+
+## Copyright (C) 2007 Herbert Straub <herbert@linuxhacker.at>
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+
+# Output from apcaccess
+# 
+# APC      : 001,043,1033
+# DATE     : Sun Nov 18 14:14:33 CET 2007
+# HOSTNAME : admin01
+# RELEASE  : 3.14.1
+# VERSION  : 3.14.1 (04 May 2007) debian
+# UPSNAME  : admin01
+# CABLE    : Custom Cable Smart
+# MODEL    : Back-UPS CS 500
+# UPSMODE  : Stand Alone
+# STARTTIME: Sun Nov 18 03:22:07 CET 2007
+# STATUS   : ONLINE
+# LINEV    : 230.0 Volts
+# LOADPCT  :  23.0 Percent Load Capacity
+# BCHARGE  : 100.0 Percent
+# TIMELEFT :  28.1 Minutes
+# MBATTCHG : 5 Percent
+# MINTIMEL : 3 Minutes
+# MAXTIME  : 0 Seconds
+# OUTPUTV  : 230.0 Volts
+# SENSE    : Medium
+# DWAKE    : 000 Seconds
+# DSHUTD   : 000 Seconds
+# LOTRANS  : 180.0 Volts
+# HITRANS  : 266.0 Volts
+# RETPCT   : 000.0 Percent
+# ITEMP    : 29.2 C Internal
+# ALARMDEL : Always
+# BATTV    : 13.5 Volts
+# LINEFREQ : 50.0 Hz
+# LASTXFER : Low line voltage
+# NUMXFERS : 0
+# TONBATT  : 0 seconds
+# CUMONBATT: 0 seconds
+# XOFFBATT : N/A
+# SELFTEST : NO
+# STATFLAG : 0x07000008 Status Flag
+# SERIALNO : BB0628042747
+# BATTDATE : 2006-07-09
+# NOMOUTV  : 230
+# NOMINV   : 230
+# NOMBATTV :  12.0
+# FIRMWARE : 808.q7.I USB FW:q7
+# APCMODEL : Back-UPS CS 500
+# END APC  : Sun Nov 18 14:14:33 CET 2007
+# 
+
+import os, re
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+STATE_DEPENDENT=4
+
+para={}
+statustext=''
+status=STATE_OK
+pat=re.compile("(.+) *: (.*)\n$")
+value=re.compile("((\d+)(.\d)?) (\w+)")
+def data_parse(x):
+    m=pat.search(x)
+    if m:
+        para[m.group(1).strip()]=m.group(2)
+
+def perfdata():
+    perf=''
+    m=value.search(para['BCHARGE'])
+    if m:
+        perf="charge=%s%%;" % m.group(1)
+    m=value.search(para['LOADPCT'])
+    if m:
+        perf+=" load=%s%%;" % m.group(1)
+    m=value.search(para['LINEV'])
+    if m:
+        perf+=" linev=%s;" % m.group(1)
+    m=value.search(para['BATTV'])
+    if m:
+        perf+=" battv=%s;" %m.group(1)
+    m=value.search(para['TIMELEFT'])
+    if m:
+        perf+=" timeleft=%s;" % m.group(1)
+    m=value.search(para['LINEFREQ'])
+    if m:
+        perf+=" linef=%s" % m.group(1)
+
+    return perf
+
+if len(os.sys.argv) != 5:
+    print "check_mm_apc loadwarn loadcrit chargewarn chargecrit"
+    os.sys.exit(STATE_UNKNOWN)
+else:
+    loadwarn=os.sys.argv[1]
+    loadcrit=os.sys.argv[2]
+    chargewarn=os.sys.argv[3]
+    chargecrit=os.sys.argv[4]
+
+pipe=os.popen("apcaccess", "r")
+data=pipe.readlines()
+map(data_parse, data)
+
+perf=perfdata()
+
+m=value.search(para['LOADPCT'])
+load=m.group(1)
+m=value.search(para['BCHARGE'])
+charge=m.group(1)
+m=value.search(para['TIMELEFT'])
+timeleft=m.group(1)
+
+if float(load) >= float(loadcrit):
+    statustext="Critical overload %s>%s" % (load, loadcrit)
+    status=STATE_CRITICAL
+elif float(charge) <= float(chargecrit):
+    statustext="Critical charge %s<%s" % (charge, chargecrit)
+    status=STATE_CRITICAL
+elif float(load) >= float(loadwarn):
+    statustext="Warning overload %s>%s" % (load, loadwarn)
+    status=STATE_WARNING
+elif float(charge) <= float(chargewarn):
+    statustext="Warning charge %s<%s" % (charge, chargewarn)
+    status=STATE_WARNING
+else:
+    statustext="OK"
+    status=STATE_OK
+
+statustext+=" load: %s, charge: %s, timeleft: %s" % (load, charge, timeleft)
+statustext+="|%s" % perf
+
+print statustext
+os.sys.exit(status)
+
