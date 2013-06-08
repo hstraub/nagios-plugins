@@ -1,0 +1,50 @@
+#!/usr/bin/python
+# 2008-08-13 Herbert Straub
+# License: GNU/GPL
+
+# Format: check_ftp_hs [-v] hostname username password
+# Arg1: hostname
+# Arg2: username
+# Arg3: password
+
+from ftplib import FTP
+import cStringIO, datetime, sys
+
+verbose = 0
+hostname = sys.argv[1]
+username = sys.argv[2]
+password = sys.argv[3]
+
+if verbose:
+    print "Hostname: %s" % hostname
+    print "Username: %s" % username
+    print "Password: %s" % password
+
+timestamp = datetime.datetime.now( )
+inhalt = cStringIO.StringIO( )
+inhalt.write( "Automatischer Nagios Test am %s\n" % timestamp )
+inhalt.seek( 0 )
+download = cStringIO.StringIO( )
+def downloadCallback( line ):
+    download.write( "%s\n" % line )
+
+ftp = FTP( hostname, username, password )
+if verbose:
+    ftp.set_debuglevel( 10 )
+ftp.cwd( "www" )
+ftp.storlines( "STOR testfile2", inhalt )
+ftp.retrlines( "RETR testfile2", downloadCallback )
+if verbose:
+    print "Upload data: %s" % inhalt.getvalue( )
+    print "Download data: %s" % download.getvalue( )
+
+if inhalt.getvalue( ) == download.getvalue( ):
+    print "File Up- and Download OK"
+    sys.exit( 0 )
+else:
+    print "File Up- and Download mit Fehler"
+    sys.exit( 2 )
+
+# Default vim
+# vim: set ai tabstop=4 shiftwidth=4 expandtab:
+

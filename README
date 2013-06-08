@@ -6,3 +6,6 @@ http://www.linuxhacker.at/opensource-projects/nagios-plugins/check-iftraffic
 
 2. check_mm_apc
 http://www.linuxhacker.at/opensource-projects/nagios-plugins/check-mm-apc
+
+3. check_ftp_hs
+Check ftp - file upload and get
